@@ -1,0 +1,11 @@
+lsq
+main:
+ori $t0, $0, 30
+# Load print integer syscall
+ori $v0, $0, 1
+# Move $t0 into $a0 (print integer argument)
+move $a0, $t0
+syscall
+# Exit the program
+ori $v0, $0, 10
+syscall

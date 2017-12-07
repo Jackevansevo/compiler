@@ -1,0 +1,14 @@
+/* Answer: 2 */
+
+int main() {
+  int x = 30;
+  int ret;
+  if (x < 25) {
+    ret = 1;
+  } else if(x < 50) {
+    ret = 2;
+  } else {
+    ret = 3;
+  }
+  return ret;
+}

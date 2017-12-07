@@ -1,0 +1,9 @@
+int returner() {
+  return 10;
+}
+
+int main() {
+  int x = returner();
+  print(x);
+  return 0;
+}
