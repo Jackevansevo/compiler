@@ -176,7 +176,7 @@ class TacReturn(TacInstruction):
     def to_mips(self, data):
         if self.lhs.is_constant:
             return [f'li $v1, {self.lhs.to_mips}']
-        lhs = data.lookup_mapping(self.lhs, data.mappings)
+        lhs = data.lookup_mapping(self.lhs)
         return [f'move $v1, {lhs.to_mips}']
 
     def __str__(self) -> str:
@@ -187,7 +187,7 @@ class TacLabel(TacInstruction):
     def __init__(self, label):
         self.label = label
 
-    def to_mips(self, _, __) -> List[str]:
+    def to_mips(self, _) -> List[str]:
         return [f'{self.label}:']
 
     def __str__(self) -> str:
@@ -201,7 +201,7 @@ class TacIfStatement(TacInstruction):
         self.label = label
 
     def to_mips(self, data) -> List[str]:
-        lhs = data.lookup_mapping(self.pred, data.mappings)
+        lhs = data.lookup_mapping(self.pred)
         return [f"beqz {lhs.to_mips}, {self.label}"]
 
     def __str__(self) -> str:
@@ -365,7 +365,7 @@ def recursive_build_tac(node, data):
 
     elif node.tok.lexeme == "if":
 
-        # [TODO] Sort if else statements please
+        # [TODO] Implement if else statements
 
         label = next(data.labels)
         pred = recursive_build_tac(node.lhs, data)
