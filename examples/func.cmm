@@ -1,9 +1,10 @@
+/* Answer: 10 */
+
 int returner() {
   return 10;
 }
 
 int main() {
-  int x = returner();
-  print(x);
+  print(returner());
   return 0;
 }

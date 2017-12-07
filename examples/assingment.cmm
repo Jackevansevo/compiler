@@ -1,7 +1,5 @@
 int main() {
-  int a = 20;
-  int b = a + 2;
-  a = 2;
-  print(b);
+  int a = 2;
+  print(a);
   return 0;
 }
