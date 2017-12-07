@@ -1,9 +1,8 @@
-int square(int b) {
-  return b * b;
+int add(int x, int y) {
+  return x + y;
 }
 
 int main() {
-  int x = square(5);
-  print(x);
+  print(add(10, 4));
   return 0;
 }

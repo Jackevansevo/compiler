@@ -18,8 +18,9 @@ class Token:
             return int(self.lexeme)
         return None
 
+    @property
     def is_register(self):
-        return match("(t|d)\d+", self.lexeme)
+        return bool(match("(a|t|s)\d+", self.lexeme))
 
     @property
     def is_temporary(self):
@@ -28,6 +29,10 @@ class Token:
     @property
     def is_saved(self):
         return match("s\d+", self.lexeme)
+
+    @property
+    def is_arg(self):
+        return match("a\d+", self.lexeme)
 
     @property
     def is_identifier(self):
@@ -39,7 +44,7 @@ class Token:
 
     @property
     def to_mips(self):
-        if self.is_temporary or self.is_saved:
+        if self.is_register:
             return f'${self.lexeme}'
         return str(self)
 

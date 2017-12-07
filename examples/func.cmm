@@ -1,10 +1,10 @@
-/* Answer: 10 */
+/* Answer: 2 */
 
-int returner() {
-  return 10;
+int func() {
+  return 2;
 }
 
 int main() {
-  print(returner());
+  print(func());
   return 0;
 }

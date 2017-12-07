@@ -112,11 +112,11 @@ class TacStartFunc(TacInstruction):
             # Load the sbrk syscall
             "li $v0, 9",
             "syscall",
-            "sw $fp, 4($v0)",
+            "sw $fp, 0($v0)",
             # Move old frame pointer to new framepointer
             "move $fp, $v0",
             # Record return address
-            "sw $ra, 12($v0)"
+            "sw $ra, 4($v0)"
         ]
 
     def __str__(self) -> str:
@@ -143,8 +143,11 @@ class TacParam(TacInstruction):
 
     def to_mips(self, data):
         # Assign arguments
-        data[self.pname.lexeme] = Token('param')
-        return ['nop']
+        arg = data.get_arg()
+        data[self.pname.lexeme] = arg
+        return [
+            '# Load shit from stack'
+        ]
 
     def __str__(self) -> str:
         return f'param {self.ptype} {self.pname}'
@@ -161,8 +164,8 @@ class TacCall(TacInstruction):
         data[self.reg.lexeme] = temp
         return [
             f'jal {self.label}',
-            f'lw $fp, 4($fp)',
-            f'lw $ra, 12($fp)',
+            f'lw $fp, 0($fp)',
+            f'lw $ra, 4($fp)',
             f'move {temp.to_mips}, $v1'
         ]
 
@@ -186,6 +189,7 @@ class TacReturn(TacInstruction):
 
 
 class TacLabel(TacInstruction):
+
     def __init__(self, label):
         self.label = label
 
@@ -211,6 +215,7 @@ class TacIfStatement(TacInstruction):
 
 
 class TacPrint(TacInstruction):
+
     def __init__(self, lhs):
         self.lhs = lhs
 
@@ -236,6 +241,7 @@ class TacPrint(TacInstruction):
 
 
 class TacOperation(TacInstruction):
+
     def __init__(self, reg, op, lhs, rhs):
         self.reg = reg
         self.op = op
@@ -260,6 +266,7 @@ class TacOperation(TacInstruction):
 
 
 class TacAssingment(TacInstruction):
+
     def __init__(self, lhs, rhs):
         self.lhs = lhs
         self.rhs = rhs
@@ -278,11 +285,17 @@ class TacAssingment(TacInstruction):
 
 
 class TacArg(TacInstruction):
+
     def __init__(self, arg):
         self.arg = arg
 
-    def to_mips(self, _):
-        return ['noop']
+    def to_mips(self, data):
+        reg = data.allocate_register(self.arg)
+        return [
+            f'li ${reg}, {self.arg}',
+            'addi $sp, $sp, -4',
+            f'sw ${reg}, 0($sp)'
+        ]
 
     def __str__(self) -> str:
         return f'arg {self.arg}'
