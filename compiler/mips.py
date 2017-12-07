@@ -8,46 +8,61 @@ class MipsData:
     def __init__(self):
         self.temporaries = (Token(f't{x}') for x in range(9))
         self.saved = (Token(f's{x}') for x in range(7))
-        self.mappings = {}
+        self.arguments = (Token(f'a{x}') for x in range(4))
+        self._mappings = {}
 
-    def allocate_register(self, tok):
-        pass
+    @property
+    def mappings(self):
+        return self._mappings
 
-    def get_temp(self):
+    def get(self, value):
+        return self._mappings.get(value)
+
+    def __setitem__(self, key, val) -> None:
+        self._mappings[key] = val
+
+    def __getitem__(self, key) -> Token:
+        return self._mappings[key]
+
+    def get_next_register(self, pool) -> Token:
         try:
-            register = next(iter(self.temporaries))
+            register = next(iter(pool))
         except StopIteration:
-            sys.exit("Ran out of temporaries")
+            sys.exit("Ran out of registers")
         else:
             return register
+
+    def get_temp(self) -> Token:
+        return self.get_next_register(self.temporaries)
+
+    def get_saved(self) -> Token:
+        return self.get_next_register(self.saved)
+
+    def get_arg(self) -> Token:
+        return self.get_next_register(self.arguments)
 
     def lookup_mapping(self, tok) -> Token:
         if tok.is_constant:
             return tok
-        reg = self.mappings.get(tok.lexeme)
-        if reg:
-            return reg
-        else:
-            sys.exit(f'{tok.lexeme} Undefined')
+        return self.mappings.get(tok.lexeme)
 
-    def get_saved(self):
-        try:
-            register = next(iter(self.saved))
-        except StopIteration:
-            sys.exit("Ran out of temporaries")
+    def allocate_register(self, tok) -> Token:
+        if tok.is_identifier:
+            return self.get_saved()
         else:
-            return register
+            return self.get_temp()
 
     def alloc_temp(self, tok) -> Union[Token, str]:
-        reg = self.lookup_mapping(tok)
-        if reg:
-            # Token is already a temporary
-            if reg.is_temporary:
-                return reg, []
+        val = self.lookup_mapping(tok)
+        if val:
+            if val.lexeme == "param":
+                pass
+            if val.is_temporary or val.is_saved:
+                return val, []
             else:
                 temp = self.get_temp()
-                self.mappings[reg.lexeme] = temp
-                return temp, [f'li {temp.to_mips}, {reg.to_mips}']
+                self[val.lexeme] = temp
+                return temp, [f'li {temp.to_mips}, {val.to_mips}']
         else:
             sys.exit(f'{tok.lexeme} Undefined')
 

@@ -107,7 +107,7 @@ class TacStartFunc(TacInstruction):
     def to_mips(self, _) -> List[str]:
         return [
             f"{self.label.lexeme}:",
-            # Create a frame
+            # Create a frame of fixed size
             "li $a0, 48",
             # Load the sbrk syscall
             "li $v0, 9",
@@ -141,8 +141,10 @@ class TacParam(TacInstruction):
         self.ptype = ptype
         self.pname = pname
 
-    def to_mips(self, _):
-        raise NotImplementedError("fucked mate")
+    def to_mips(self, data):
+        # Assign arguments
+        data[self.pname.lexeme] = Token('param')
+        return ['nop']
 
     def __str__(self) -> str:
         return f'param {self.ptype} {self.pname}'
@@ -156,7 +158,7 @@ class TacCall(TacInstruction):
 
     def to_mips(self, data):
         temp = data.get_temp()
-        data.mappings[self.reg.lexeme] = temp
+        data[self.reg.lexeme] = temp
         return [
             f'jal {self.label}',
             f'lw $fp, 4($fp)',
@@ -246,7 +248,7 @@ class TacOperation(TacInstruction):
         rhs, rhs_instruction = data.alloc_temp(self.rhs)
         # Put the result in a new temporary
         temp = data.get_temp()
-        data.mappings[self.reg.lexeme] = temp
+        data[self.reg.lexeme] = temp
         return list(chain(
             lhs_instruction,
             rhs_instruction,
@@ -263,25 +265,13 @@ class TacAssingment(TacInstruction):
         self.rhs = rhs
 
     def to_mips(self, data) -> List[str]:
-        # [TODO] Correctly handle identifiers
-        # if self.lhs.is_identifier:
-        #     register = data.get_saved()
-        #     data.mappings[self.lhs.lexeme] = register
-        #     if self.rhs.is_constant:
-        #         return [
-        #             f"li {register.to_mips}, {self.rhs.to_mips}"
-        #         ]
-        #     lhs = data.mappings[self.rhs.lexeme]
-        #     return [f"move {register.to_mips}, {lhs.to_mips}"]
-        # else:
-        temp = data.get_temp()
-        data.mappings[self.lhs.lexeme] = temp
+        reg = data.allocate_register(self.lhs)
+        data[self.lhs.lexeme] = reg
         if self.rhs.is_constant:
-            return [
-                f"li {temp.to_mips}, {self.rhs.to_mips}"
-            ]
-        lhs = data.mappings[self.rhs.lexeme]
-        return [f"move {temp.to_mips}, {lhs.to_mips}"]
+            return [f"li {reg.to_mips}, {self.rhs.to_mips}"]
+        else:
+            # Lookup the token to see which register it's been assinged
+            return [f"move {reg.to_mips}, {data[self.rhs.lexeme].to_mips}"]
 
     def __str__(self) -> str:
         return f'{self.lhs} := {self.rhs}'
@@ -292,7 +282,7 @@ class TacArg(TacInstruction):
         self.arg = arg
 
     def to_mips(self, _):
-        pass
+        return ['noop']
 
     def __str__(self) -> str:
         return f'arg {self.arg}'

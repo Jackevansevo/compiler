@@ -18,6 +18,9 @@ class Token:
             return int(self.lexeme)
         return None
 
+    def is_register(self):
+        return match("(t|d)\d+", self.lexeme)
+
     @property
     def is_temporary(self):
         return match("t\d+", self.lexeme)
