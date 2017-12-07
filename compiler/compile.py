@@ -62,6 +62,9 @@ def main():
     tac_list = build_tac(head)
 
     if args.debug:
+        print("─" * get_terminal_size().columns)
+        print("TAC")
+        print("─" * get_terminal_size().columns)
         for instruction in tac_list:
             print(instruction)
 
@@ -69,6 +72,8 @@ def main():
         tac_list = optimize_tac(tac_list, args.debug)
 
     if args.debug:
+        print("─" * get_terminal_size().columns)
+        print("MIPS")
         print("─" * get_terminal_size().columns)
 
     if args.tac_only:
