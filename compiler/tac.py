@@ -123,6 +123,21 @@ class TacStartFunc(TacInstruction):
         return f'func {self.label}'
 
 
+class TacParamCount(TacInstruction):
+
+    def __init__(self, count):
+        self.count = count
+
+    def to_mips(self, _) -> List[str]:
+        return [
+            '# Increment stack pointer by the numbe of args',
+            f'addi $sp, $sp {self.count.val * 4}'
+        ]
+
+    def __str__(self) -> str:
+        return f'params {self.count}'
+
+
 class TacEndFunc(TacInstruction):
 
     def __init__(self, label):
@@ -146,7 +161,9 @@ class TacParam(TacInstruction):
         arg = data.get_arg()
         data[self.pname.lexeme] = arg
         return [
-            '# Load shit from stack'
+            '# Count down each time',
+            'addi $sp, $sp, -4',
+            f'lw, {arg.to_mips}, 0($sp)',
         ]
 
     def __str__(self) -> str:
@@ -221,12 +238,9 @@ class TacPrint(TacInstruction):
 
     def mips_print(self, reg):
         return [
-            "# Load print integer syscall",
             "li $v0, 1",
-            f"# Move {reg.to_mips} into $a0 (print integer argument)",
             f"move $a0, {reg.to_mips}",
             "syscall",
-            "# Print a newline",
             "addi $a0, $0, 0xA",
             "addi $v0, $0, 0xB",
             "syscall",
@@ -342,7 +356,9 @@ def recursive_build_tac(node, data):
         data.tac_list.append(TacStartFunc(func_name))
 
         params = node.func_params
+
         if params:
+            data.tac_list.append(TacParamCount(len(params)))
             for param in params:
                 data.tac_list.append(TacParam(param.type, param.name))
 
@@ -360,7 +376,8 @@ def recursive_build_tac(node, data):
             if node.rhs is not None:
                 func_args = list(node.rhs.func_args)
                 for arg in func_args:
-                    data.tac_list.append(TacArg(arg.tok.lexeme))
+                    val = recursive_build_tac(arg, data)
+                    data.tac_list.append(TacArg(val))
             temp = data.get_temp()
             func_name = node.lhs.tok.lexeme
             data.tac_list.append(TacCall(temp, func_name))

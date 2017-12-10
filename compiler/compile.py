@@ -71,13 +71,13 @@ def main():
     if args.optimize:
         tac_list = optimize_tac(tac_list, args.debug)
 
+    if args.tac_only:
+        sys.exit()
+
     if args.debug:
         print("─" * get_terminal_size().columns)
         print("MIPS")
         print("─" * get_terminal_size().columns)
-
-    if args.tac_only:
-        sys.exit()
 
     mips = build_mips(tac_list)
 

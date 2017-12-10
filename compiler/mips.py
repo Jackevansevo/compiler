@@ -2,6 +2,11 @@ import sys
 from compiler.parse import Token
 from typing import List, Union
 
+# [TODO]
+# Reset the stack pointer at the end of a function
+# Evaluate arguments before passing to functions
+# Generic move register function
+
 
 class MipsData:
 
@@ -54,17 +59,15 @@ class MipsData:
 
     def alloc_temp(self, tok) -> Union[Token, str]:
         val = self.lookup_mapping(tok)
-        if val:
-            if val.lexeme == "param":
-                pass
-            if val.is_temporary or val.is_saved:
-                return val, []
-            else:
-                temp = self.get_temp()
-                self[val.lexeme] = temp
-                return temp, [f'li {temp.to_mips}, {val.to_mips}']
+        if val.is_register:
+            return val, []
         else:
-            sys.exit(f'{tok.lexeme} Undefined')
+            temp = self.get_temp()
+            self[val.lexeme] = temp
+            return temp, [
+                '# Fucking memes',
+                f'li {temp.to_mips}, {val.to_mips}'
+            ]
 
 
 def build_mips(tac_list) -> List[str]:

@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+tempfile=$(mktemp)
+tail $0 -n +7 > $tempfile
+spim load $tempfile | tail -n +6
+rm -f $tempfile
+exit
+li $fp, 0
+jal main
+j end
+identity:
+li $a0, 48
+li $v0, 9
+syscall
+sw $fp, 0($v0)
+move $fp, $v0
+sw $ra, 4($v0)
+# Increment stack pointer by the numbe of args
+addi $sp, $sp 4
+# Count down each time
+addi $sp, $sp, -4
+lw, $a0, 0($sp)
+move $v1, $a0
+jr $ra
+main:
+li $a0, 48
+li $v0, 9
+syscall
+sw $fp, 0($v0)
+move $fp, $v0
+sw $ra, 4($v0)
+# Fucking memes
+li $t0, 2
+# Fucking memes
+li $t1, 1
+add $t2, $t0, $t1
+move $t3, $t4
+addi $sp, $sp, -4
+sw $t3, 0($sp)
+jal identity
+lw $fp, 0($fp)
+lw $ra, 4($fp)
+move $t4, $v1
+li $v0, 1
+move $a0, $t4
+syscall
+addi $a0, $0, 0xA
+addi $v0, $0, 0xB
+syscall
+li $v1, 0
+jr $ra
+end:
+# Exit the program
+li $v0, 10
+syscall

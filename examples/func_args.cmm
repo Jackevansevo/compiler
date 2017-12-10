@@ -1,8 +1,10 @@
-int add(int x, int y) {
-  return x + y;
+/* Answer: 3 */
+
+int func(int x, int y, int z) {
+  return (x + y) / z;
 }
 
 int main() {
-  print(add(10, 4));
+  print(func(5, 4, 3));
   return 0;
 }
