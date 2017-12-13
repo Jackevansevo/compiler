@@ -1,9 +1,11 @@
 import sys
-from typing import List
-from itertools import count, chain
-from operator import add, eq, floordiv, ge, gt, le, lt, mod, mul, ne, sub
 from compiler.parse import Token
+from itertools import count
+from operator import add, eq, floordiv, ge, gt, le, lt, mod, mul, ne, sub
+from typing import List
 
+# [TODO] Fix for the factorial example
+# [TODO] Implement if else statements
 
 tac_optimizations = []
 
@@ -27,11 +29,10 @@ def tokenize(lexeme):
     """Converts a string to a Token"""
     if isinstance(lexeme, Token):
         return lexeme
-    if isinstance(lexeme, str):
+    elif isinstance(lexeme, str):
         return Token(lexeme)
-    if isinstance(lexeme, int):
+    elif isinstance(lexeme, int):
         return Token(str(lexeme))
-    return None
 
 
 class TacInstruction:
@@ -61,7 +62,7 @@ class TacInstruction:
                 self.rhs, self.lhs = self.lhs, self.reg
                 self.reg, self.op = None, '='
                 return True
-        if self.rhs.is_identifier:
+        elif self.rhs.is_identifier:
             # // 1 * x -> x
             if self.lhs.val == 1 and self.op.lexeme == '*':
                 self.lhs, self.reg, self.op = self.reg, None, '='
@@ -88,7 +89,7 @@ class TacInstruction:
                 self.op, self.rhs = '+', self.lhs
                 return True
         # 2 * x -> x + x
-        if self.rhs.is_identifier and self.lhs.val == 2:
+        elif self.rhs.is_identifier and self.lhs.val == 2:
             if self.op.lexeme == '*':
                 self.op, self.lhs = '+', self.rhs
                 return True
@@ -130,7 +131,7 @@ class TacParamCount(TacInstruction):
 
     def to_mips(self, _) -> List[str]:
         return [
-            '# Increment stack pointer by the numbe of args',
+            '# Increment stack pointer by the number of args',
             f'addi $sp, $sp {self.count.val * 4}'
         ]
 
@@ -144,7 +145,7 @@ class TacEndFunc(TacInstruction):
         self.label = label
 
     def to_mips(self, _) -> List[str]:
-        return [f'jr $ra']
+        return [f'nop']
 
     def __str__(self) -> str:
         return f'endfunc'
@@ -158,7 +159,7 @@ class TacParam(TacInstruction):
 
     def to_mips(self, data):
         # Assign arguments
-        arg = data.get_arg()
+        arg = data.get_next_register(data.arguments)
         data[self.pname.lexeme] = arg
         return [
             '# Count down each time',
@@ -177,7 +178,7 @@ class TacCall(TacInstruction):
         self.label = label
 
     def to_mips(self, data):
-        temp = data.get_temp()
+        temp = data.get_next_register(data.temporaries)
         data[self.reg.lexeme] = temp
         return [
             f'jal {self.label}',
@@ -197,9 +198,15 @@ class TacReturn(TacInstruction):
 
     def to_mips(self, data):
         if self.lhs.is_constant:
-            return [f'li $v1, {self.lhs.to_mips}']
-        lhs = data.lookup_mapping(self.lhs)
-        return [f'move $v1, {lhs.to_mips}']
+            return [
+                f'li $v1, {self.lhs.to_mips}',
+                f'jr $ra'
+            ]
+        lhs = data.allocate_register(self.lhs)
+        return [
+            f'move $v1, {lhs.to_mips}',
+            f'jr $ra'
+        ]
 
     def __str__(self) -> str:
         return f'return {self.lhs}'
@@ -224,7 +231,7 @@ class TacIfStatement(TacInstruction):
         self.label = label
 
     def to_mips(self, data) -> List[str]:
-        lhs = data.lookup_mapping(self.pred)
+        lhs = data.allocate_register(self.pred)
         return [f"beqz {lhs.to_mips}, {self.label}"]
 
     def __str__(self) -> str:
@@ -236,19 +243,17 @@ class TacPrint(TacInstruction):
     def __init__(self, lhs):
         self.lhs = lhs
 
-    def mips_print(self, reg):
+    def to_mips(self, data) -> List[str]:
+        reg = data.allocate_register(self.lhs)
+        load, *_ = data.mips_assign(Token('$a0'), reg)
         return [
+            load,
             "li $v0, 1",
-            f"move $a0, {reg.to_mips}",
             "syscall",
             "addi $a0, $0, 0xA",
             "addi $v0, $0, 0xB",
             "syscall",
         ]
-
-    def to_mips(self, data) -> List[str]:
-        temp, instruction = data.alloc_temp(self.lhs)
-        return list(chain(instruction, self.mips_print(temp)))
 
     def __str__(self) -> str:
         return f'print {self.lhs}'
@@ -263,17 +268,12 @@ class TacOperation(TacInstruction):
         self.rhs = rhs
 
     def to_mips(self, data) -> List[str]:
-        instruction = mips_operators[self.op.lexeme]
-        lhs, lhs_instruction = data.alloc_temp(self.lhs)
-        rhs, rhs_instruction = data.alloc_temp(self.rhs)
-        # Put the result in a new temporary
-        temp = data.get_temp()
-        data[self.reg.lexeme] = temp
-        return list(chain(
-            lhs_instruction,
-            rhs_instruction,
-            [f"{instruction} {temp.to_mips}, {lhs.to_mips}, {rhs.to_mips}"]
-        ))
+        op = mips_operators[self.op.lexeme]
+        lhs, lhs_assingment = data.resolve_mapping(self.lhs)
+        rhs, rhs_assingment = data.resolve_mapping(self.rhs)
+        temp = data.assign_temp(self.reg)
+        operation = f'{op} {temp.to_mips}, {lhs.to_mips}, {rhs.to_mips}'
+        return list(filter(None, [lhs_assingment, rhs_assingment, operation]))
 
     def __str__(self) -> str:
         return f'{self.reg} = {self.lhs} {self.op} {self.rhs}'
@@ -286,13 +286,10 @@ class TacAssingment(TacInstruction):
         self.rhs = rhs
 
     def to_mips(self, data) -> List[str]:
-        reg = data.allocate_register(self.lhs)
-        data[self.lhs.lexeme] = reg
-        if self.rhs.is_constant:
-            return [f"li {reg.to_mips}, {self.rhs.to_mips}"]
-        else:
-            # Lookup the token to see which register it's been assinged
-            return [f"move {reg.to_mips}, {data[self.rhs.lexeme].to_mips}"]
+        return data.mips_assign(
+            data.allocate_register(self.lhs),
+            data.allocate_register(self.rhs)
+        )
 
     def __str__(self) -> str:
         return f'{self.lhs} := {self.rhs}'
@@ -304,12 +301,19 @@ class TacArg(TacInstruction):
         self.arg = arg
 
     def to_mips(self, data):
-        reg = data.allocate_register(self.arg)
-        return [
-            f'li ${reg}, {self.arg}',
-            'addi $sp, $sp, -4',
-            f'sw ${reg}, 0($sp)'
-        ]
+        if self.arg.lexeme in data._mappings:
+            reg = data[self.arg.lexeme]
+            return [
+                'addi $sp, $sp, -4',
+                f'sw {reg.to_mips}, 0($sp)'
+            ]
+        else:
+            reg = data.allocate_register(self.arg)
+            return [
+                f'li ${reg}, {self.arg.to_mips}',
+                'addi $sp, $sp, -4',
+                f'sw ${reg}, 0($sp)'
+            ]
 
     def __str__(self) -> str:
         return f'arg {self.arg}'
@@ -337,6 +341,78 @@ def build_tac(node):
     return data.tac_list
 
 
+def check_if_defined(tac_list, func_name, tac_type):
+    # Find matching Tac instructions
+    matches = (t for t in tac_list if isinstance(t, tac_type))
+    if tac_type == TacStartFunc:
+        fn_names = (fn.label.lexeme for fn in matches)
+        return func_name in fn_names
+
+
+def interpret_operator(node, data):
+    temp = data.get_temp()
+    rhs = recursive_build_tac(node.rhs, data)
+    lhs = recursive_build_tac(node.lhs, data)
+    data.tac_list.append(TacOperation(temp, node.tok, lhs, rhs))
+    return temp
+
+
+def interpret_function(node, data):
+    func_name = node.lhs.rhs.lhs.tok.lexeme
+    data.tac_list.append(TacStartFunc(func_name))
+
+    params = node.func_params
+
+    if params:
+        data.tac_list.append(TacParamCount(len(params)))
+        for param in params:
+            data.tac_list.append(TacParam(param.type, param.name))
+
+    recursive_build_tac(node.lhs, data)
+    rhs = recursive_build_tac(node.rhs, data)
+    data.tac_list.append(TacEndFunc(func_name))
+    return rhs
+
+
+def interpret_apply(node, data):
+    if node.lhs.tok.lexeme == "print":
+        rhs = recursive_build_tac(node.rhs, data)
+        data.tac_list.append(TacPrint(rhs))
+        return rhs
+    else:
+        if node.rhs is not None:
+            func_args = list(node.rhs.func_args)
+            for arg in func_args:
+                val = recursive_build_tac(arg, data)
+                data.tac_list.append(TacArg(val))
+        temp = data.get_temp()
+        func_name = node.lhs.tok.lexeme
+        # Check if the function is undefined
+        if not check_if_defined(data.tac_list, func_name, TacStartFunc):
+            sys.exit(f"Error: Function '{func_name}' undefined")
+        data.tac_list.append(TacCall(temp, func_name))
+        return temp
+
+
+def interpret_if(node, data):
+    label = next(data.labels)
+    pred = recursive_build_tac(node.lhs, data)
+    data.tac_list.append(TacIfStatement(pred.lexeme, label))
+
+    recursive_build_tac(node.rhs, data)
+
+    instruction = TacLabel(label)
+    data.tac_list.append(instruction)
+    temp = data.get_temp()
+    return temp
+
+
+def interpret_assignment(node, data):
+    rhs = recursive_build_tac(node.rhs, data)
+    data.tac_list.append(TacAssingment(node.lhs.tok, rhs))
+    return rhs
+
+
 def recursive_build_tac(node, data):
 
     if node.tok.lexeme == "return":
@@ -345,63 +421,19 @@ def recursive_build_tac(node, data):
         return lhs
 
     elif node.tok.lexeme in operators.keys():
-        temp = data.get_temp()
-        rhs = recursive_build_tac(node.rhs, data)
-        lhs = recursive_build_tac(node.lhs, data)
-        data.tac_list.append(TacOperation(temp, node.tok, lhs, rhs))
-        return temp
+        return interpret_operator(node, data)
 
     elif node.tok.lexeme == "D":
-        func_name = node.lhs.rhs.lhs.tok.lexeme
-        data.tac_list.append(TacStartFunc(func_name))
-
-        params = node.func_params
-
-        if params:
-            data.tac_list.append(TacParamCount(len(params)))
-            for param in params:
-                data.tac_list.append(TacParam(param.type, param.name))
-
-        recursive_build_tac(node.lhs, data)
-        rhs = recursive_build_tac(node.rhs, data)
-        data.tac_list.append(TacEndFunc(func_name))
-        return rhs
+        return interpret_function(node, data)
 
     elif node.tok.lexeme == "apply":
-        if node.lhs.tok.lexeme == "print":
-            rhs = recursive_build_tac(node.rhs, data)
-            data.tac_list.append(TacPrint(rhs))
-            return rhs
-        else:
-            if node.rhs is not None:
-                func_args = list(node.rhs.func_args)
-                for arg in func_args:
-                    val = recursive_build_tac(arg, data)
-                    data.tac_list.append(TacArg(val))
-            temp = data.get_temp()
-            func_name = node.lhs.tok.lexeme
-            data.tac_list.append(TacCall(temp, func_name))
-            return temp
+        return interpret_apply(node, data)
 
     elif node.tok.lexeme == "if":
-
-        # [TODO] Implement if else statements
-
-        label = next(data.labels)
-        pred = recursive_build_tac(node.lhs, data)
-        data.tac_list.append(TacIfStatement(pred.lexeme, label))
-
-        recursive_build_tac(node.rhs, data)
-
-        instruction = TacLabel(label)
-        data.tac_list.append(instruction)
-        temp = data.get_temp()
-        return temp
+        return interpret_if(node, data)
 
     elif node.tok.lexeme == "=":
-        rhs = recursive_build_tac(node.rhs, data)
-        data.tac_list.append(TacAssingment(node.lhs.tok, rhs))
-        return rhs
+        return interpret_assignment(node, data)
 
     elif node.tok.lexeme == "d":
         recursive_build_tac(node.rhs, data)

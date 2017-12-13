@@ -1,8 +1,10 @@
-int identity(int x) {
-  return x;
+/* Answer: 9 */
+
+int square(int x) {
+  return x * x;
 }
 
 int main() {
-  print(identity(2 + 1));
+  print(square(2 + 1));
   return 0;
 }
