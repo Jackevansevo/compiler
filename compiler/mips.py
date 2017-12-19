@@ -1,6 +1,7 @@
 import sys
-from compiler.parse import Token
+from compiler.token import Token
 from typing import List, Union
+from compiler.tac import TacInstruction
 
 
 class MipsData:
@@ -46,6 +47,11 @@ class MipsData:
         self[tok.lexeme] = temp
         return temp
 
+    def lookup_mapping(self, tok) -> Token:
+        if tok.is_constant:
+            return tok
+        return self.get(tok.lexeme)
+
     def resolve_mapping(self, tok) -> Union[Token, str]:
         mapping = self.lookup_mapping(tok)
         if not mapping.is_register:
@@ -54,13 +60,10 @@ class MipsData:
             return temp, assingment
         return mapping, None
 
-    def lookup_mapping(self, tok) -> Token:
+    def allocate_register(self, tok) -> Token:
         if tok.is_constant:
             return tok
-        return self.get(tok.lexeme)
-
-    def allocate_register(self, tok) -> Token:
-        mapping = self.lookup_mapping(tok)
+        mapping = self.get(tok.lexeme)
         if mapping:
             return mapping
         elif tok.is_identifier:
@@ -71,20 +74,23 @@ class MipsData:
         return reg
 
 
-def build_mips(tac_list) -> List[str]:
+def build_mips(tac_list: List[TacInstruction]) -> List[str]:
 
     prog_data = MipsData()
     instructions = []
 
+    # Jump to main
     instructions.extend([
         "li $fp, 0",
         "jal main",
         "j end",
     ])
 
+    # Convert all the tac instructions to MIPS
     for index, tac in enumerate(tac_list, 1):
         instructions.extend(tac.to_mips(prog_data))
 
+    # Load and call the exit syscall
     instructions.extend([
         "end:",
         "# Exit the program",

@@ -1,0 +1,10 @@
+/* Answer: 1 */
+
+int main() {
+  int x = 0;
+  if(10 == 10) {
+    x = 1;
+  }
+  print(x);
+  return 0;
+}

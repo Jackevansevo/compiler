@@ -1,10 +1,10 @@
-/* Answer: 9 */
+/* Answer: 16 */
 
 int square(int x) {
   return x * x;
 }
 
 int main() {
-  print(square(2 + 1));
+  print(square(5 - 1));
   return 0;
 }
